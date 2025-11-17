@@ -1,26 +1,27 @@
 import PJ from "../pessoas/PJ.mjs";
 
 export default class PJDAO {
-    constructor(id = null) {
-        this.baseUrl = "https://backend-pessoas.vercel.app/pj";
-        this.cache = [];
-      
-        if (id) {
-          this.cache = [];
-          this.buscarPorId(id).then((pessoa) => {
-            if (pessoa) this.cache = [pessoa];
-          });
-        } else {
-          this.carregarLista();
-        }
-      }
-      
+  constructor(id = null) {
+    this.baseUrl = "https://backend-pessoas.vercel.app/pj";
+    this.cache = [];
+
+    if (id) {
+      this.cache = [];
+      this.buscarPorId(id).then((pessoa) => {
+        if (pessoa) this.cache = [pessoa];
+      });
+    } else {
+      this.carregarLista();
+    }
+  }
+
   async carregarLista() {
     try {
       const resp = await fetch(this.baseUrl);
       if (!resp.ok) throw new Error("Erro ao listar PJs");
 
       const data = await resp.json();
+
       this.cache = data.map((pj) => this.mapPJ(pj));
     } catch (e) {
       console.error("Erro ao carregar lista PJ:", e);
@@ -29,9 +30,6 @@ export default class PJDAO {
   }
 
   listar() {
-    if (!this.cache || this.cache.length === 0) {
-      this.carregarLista();
-    }
     return this.cache;
   }
 
@@ -45,11 +43,14 @@ export default class PJDAO {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(obj),
       });
+
       if (!resp.ok) throw new Error("Erro ao salvar PJ");
 
       const data = await resp.json();
       const novo = this.mapPJ(data);
+
       this.cache.push(novo);
+
       return novo;
     } catch (e) {
       console.error("Erro ao salvar PJ:", e);
@@ -67,6 +68,7 @@ export default class PJDAO {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(obj),
       });
+
       if (!resp.ok) throw new Error("Erro ao atualizar PJ");
 
       const data = await resp.json();
@@ -74,7 +76,6 @@ export default class PJDAO {
 
       const idx = this.cache.findIndex((p) => p.id === id);
       if (idx >= 0) this.cache[idx] = atualizado;
-      else this.cache.push(atualizado);
 
       return atualizado;
     } catch (e) {
@@ -87,6 +88,7 @@ export default class PJDAO {
     try {
       const resp = await fetch(`${this.baseUrl}/${id}`, { method: "DELETE" });
       if (!resp.ok) throw new Error("Erro ao excluir PJ");
+
       this.cache = this.cache.filter((p) => p.id !== id);
     } catch (e) {
       console.error("Erro ao excluir PJ:", e);
@@ -94,11 +96,17 @@ export default class PJDAO {
   }
 
   mapPJ(pj) {
+    const ieData = pj.ie && typeof pj.ie === "object" ? pj.ie.dataRegistro : null;
+
     return {
       id: pj._id,
       nome: pj.nome,
       email: pj.email,
       cnpj: pj.cnpj,
+
+      // ✔️ seguro mesmo se o backend retornar null
+      dataRegistro: ieData ? ieData : null,
+
       endereco: pj.endereco
         ? {
             cep: pj.endereco.cep,
@@ -109,11 +117,13 @@ export default class PJDAO {
             regiao: pj.endereco.regiao,
           }
         : {},
+
       telefones: (pj.telefones || []).map((t) => ({
         ddd: t.ddd,
         numero: t.numero,
       })),
-      ie: pj.ie
+
+      ie: pj.ie && typeof pj.ie === "object"
         ? {
             numero: pj.ie.numero,
             estado: pj.ie.estado,
@@ -125,6 +135,7 @@ export default class PJDAO {
 
   toPlain(pj) {
     if (!pj) return {};
+
     const end = pj.getEndereco?.();
     const ie = pj.getIE?.();
     const telefones = pj.getTelefones?.() || [];
@@ -133,6 +144,7 @@ export default class PJDAO {
       nome: pj.getNome?.(),
       email: pj.getEmail?.(),
       cnpj: pj.getCNPJ?.(),
+
       endereco: end
         ? {
             cep: end.getCep?.(),
@@ -143,31 +155,35 @@ export default class PJDAO {
             regiao: end.getRegiao?.(),
           }
         : {},
+
       telefones: telefones.map((t) => ({
         ddd: t.getDdd?.(),
         numero: t.getNumero?.(),
       })),
+
       ie: ie
         ? {
             numero: ie.getNumero?.(),
             estado: ie.getEstado?.(),
             dataRegistro: ie.getDataRegistro?.(),
           }
-        : {},
+        : {}
     };
   }
 
   async buscarPorId(id) {
     const existente = this.cache.find((p) => p.id === id);
     if (existente) return existente;
-  
+
     try {
       const resp = await fetch(`${this.baseUrl}/${id}`);
       if (!resp.ok) throw new Error("Erro ao buscar PJ por ID");
+
       const data = await resp.json();
       const pessoa = this.mapPJ(data);
-  
+
       this.cache.push(pessoa);
+
       return pessoa;
     } catch (e) {
       console.error("Erro ao buscar PJ por ID:", e);

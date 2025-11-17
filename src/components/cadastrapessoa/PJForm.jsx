@@ -3,13 +3,27 @@ import { Form, Input, Select, DatePicker } from "antd";
 
 export default function PJForm() {
   const estados = [
-    "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT",
-    "MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO",
-    "RR","SC","SP","SE","TO"
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT",
+    "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO",
+    "RR", "SC", "SP", "SE", "TO"
   ];
 
   return (
     <>
+      <h3 style={{ marginTop: 20 }}>Dados da Pessoa Jurídica</h3>
+
+      {/* Data de Registro DA PJ */}
+      <Form.Item
+        label="Data de Registro da Pessoa Jurídica"
+        name="dataRegistro"
+        rules={[{ required: true, message: "Informe a data de registro!" }]}
+      >
+        <DatePicker
+          style={{ width: "100%" }}
+          format="DD/MM/YYYY"
+          placeholder="Selecione a data de registro"
+        />
+      </Form.Item>
       <h3 style={{ marginTop: 20 }}>Dados da Inscrição Estadual (IE)</h3>
 
       <Form.Item

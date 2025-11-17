@@ -4,6 +4,7 @@ import { EyeOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import PFDAO from "../../objetos/dao/PFDAOBackEnd.mjs";
 import PJDAO from "../../objetos/dao/PJDAOBackEnd.mjs";
+import dayjs from "dayjs";
 
 export default function ListaPessoas() {
   const navigate = useNavigate();
@@ -15,7 +16,6 @@ export default function ListaPessoas() {
   const pfDAO = new PFDAO();
   const pjDAO = new PJDAO();
 
-  // 🔹 Atualiza a lista conforme o tipo ou filtro
   function carregarLista() {
     const dao = tipo === "PF" ? pfDAO : pjDAO;
     const lista = dao.listar();
@@ -53,8 +53,18 @@ export default function ListaPessoas() {
       title: tipo === "PF" ? "CPF" : "CNPJ",
       dataIndex: tipo === "PF" ? "cpf" : "cnpj",
       key: "doc",
-      width: 200,
+      width: 150,
     },
+
+    // 🔹 NOVA COLUNA — EXIBE DATA DE NASCIMENTO (PF) OU DATA DE REGISTRO (PJ)
+    {
+      title: tipo === "PF" ? "Data de Nascimento" : "Data de Registro",
+      dataIndex: tipo === "PF" ? "dataNascimento" : "dataRegistro",
+      key: "data",
+      width: 150,
+      render: (data) => data ? dayjs(data).format("DD/MM/YYYY") : "-"
+    },
+
     {
       title: "Ações",
       key: "acoes",
@@ -126,6 +136,3 @@ export default function ListaPessoas() {
     </div>
   );
 }
-
-
-
