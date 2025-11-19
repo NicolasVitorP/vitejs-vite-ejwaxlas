@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Form, Input, Button, Radio, message } from "antd";
+import { Form, Input, Button, Radio, message, Spin } from "antd";
 import { useParams, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 
@@ -24,28 +24,43 @@ import IE from "../../objetos/pessoas/IE.mjs";
 export default function PessoaForm() {
   const [tipo, setTipo] = useState("PF");
   const [editando, setEditando] = useState(false);
+  const [loading, setLoading] = useState(false); // ⭐ SPIN
   const [form] = Form.useForm();
+
   const navigate = useNavigate();
   const { tipo: tipoParam, id } = useParams();
 
   const pfDAO = new PFDAO();
   const pjDAO = new PJDAO();
 
-  // =========================
-  // EFEITO: Carregar dados no modo edição
-  // =========================
+  // ============================================================
+  //  EFEITO: Carregar dados do backend no modo edição
+  // ============================================================
   useEffect(() => {
-    if (id && tipoParam) {
-      setEditando(true);
-      setTipo(tipoParam);
+    async function carregarEdicao() {
+      if (id && tipoParam) {
+        setLoading(true); // inicia SPIN
+        setEditando(true);
+        setTipo(tipoParam);
 
-      const dao = tipoParam === "PF" ? pfDAO : pjDAO;
-      const lista = dao.listar();
-      const pessoa = lista.find((p) => p.id === id);
+        const dao = tipoParam === "PF" ? pfDAO : pjDAO;
 
-      if (pessoa) {
+        // 🔹 aguarda backend carregar lista
+        await dao.carregarLista();
+        const lista = dao.listar();
+
+        const pessoa = lista.find((p) => p.id === id);
+
+        if (!pessoa) {
+          message.error("Pessoa não encontrada!");
+          navigate("/listar");
+          setLoading(false);
+          return;
+        }
+
         window.scrollTo({ top: 0, behavior: "smooth" });
 
+        // 🔹 Monta objeto de valores compatíveis com o formulário
         const valores = {
           tipo: tipoParam,
           nome: pessoa.nome,
@@ -63,26 +78,41 @@ export default function PessoaForm() {
           valores.ie = {
             numero: ieObj.numero || "",
             estado: ieObj.estado || "",
-            dataRegistro: ieObj.dataRegistro
-              ? dayjs(ieObj.dataRegistro)
-              : null,
+            dataRegistro:
+              ieObj.dataRegistro && ieObj.dataRegistro !== ""
+                ? dayjs(ieObj.dataRegistro)
+                : null,
           };
         }
 
         form.setFieldsValue(valores);
-      } else {
-        message.error("Pessoa não encontrada!");
-        navigate("/listar");
+        setLoading(false); // finaliza SPIN
       }
     }
+
+    carregarEdicao();
   }, [id, tipoParam]);
 
-  // =========================
+  // ============================================================
+//  LIMPAR FORMULÁRIO AO ENTRAR EM /cadastrar
+// ============================================================
+useEffect(() => {
+  if (!id) {
+    // Se não tem ID, estamos em modo cadastro
+    setEditando(false);
+    setTipo("PF"); // volta ao padrão
+    form.resetFields();
+  }
+}, [id]);
+
+
+  // ============================================================
   // TROCA PF/PJ
-  // =========================
+  // ============================================================
   function onChangeTipo(e) {
     const novoTipo = e.target.value;
     setTipo(novoTipo);
+
     const valoresAtuais = form.getFieldsValue();
     form.resetFields();
     form.setFieldsValue({
@@ -91,11 +121,13 @@ export default function PessoaForm() {
     });
   }
 
-  // =========================
+  // ============================================================
   // SALVAR / ATUALIZAR
-  // =========================
+  // ============================================================
   async function onFinish(values) {
     try {
+      setLoading(true);
+
       let pessoa;
       const endVals = values.endereco || {};
 
@@ -144,7 +176,6 @@ export default function PessoaForm() {
           ie.setNumero(values.ie.numero);
           ie.setEstado(values.ie.estado);
 
-          // 👇 converte dayjs → string para salvar no DAO
           const dr = values.ie.dataRegistro;
           const dataRegistro =
             dr && typeof dr === "object" && typeof dr.format === "function"
@@ -168,25 +199,48 @@ export default function PessoaForm() {
       }
 
       const dao = tipo === "PF" ? pfDAO : pjDAO;
+
       if (editando && id) {
-        dao.atualizar(id, pessoa);
+        await dao.atualizar(id, pessoa);
         message.success("Registro atualizado com sucesso!");
       } else {
-        dao.salvar(pessoa);
+        await dao.salvar(pessoa);
         message.success("Registro criado com sucesso!");
       }
 
       form.resetFields();
-      setTimeout(() => navigate("/listar"), 600);
+      navigate("/listar");
     } catch (erro) {
       console.error("❌ Erro ao salvar:", erro);
-      message.error("Erro ao salvar registro: " + erro.message);
+      message.error("Erro ao salvar registro.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  // =========================
-  // RENDER
-  // =========================
+  // ============================================================
+  // ⭐ RENDER COM SPIN
+  // (design original mantido 100%)
+  // ============================================================
+  if (loading) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f9f9f9"
+        }}
+      >
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  // ============================================================
+  // RENDER NORMAL
+  // ============================================================
   return (
     <div
       className="main-scroll"
@@ -214,12 +268,7 @@ export default function PessoaForm() {
             : `Cadastro de ${tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}`}
         </h2>
 
-        <Form
-          layout="vertical"
-          form={form}
-          onFinish={onFinish}
-          scrollToFirstError
-        >
+        <Form form={form} layout="vertical" onFinish={onFinish}>
           <Form.Item
             label="Tipo de Pessoa"
             name="tipo"
@@ -245,10 +294,10 @@ export default function PessoaForm() {
             name="email"
             rules={[
               { required: true, message: "Informe o e-mail!" },
-              { type: "email", message: "Formato de e-mail inválido!" },
+              { type: "email", message: "Formato inválido!" },
             ]}
           >
-            <Input placeholder="exemplo@email.com" />
+            <Input />
           </Form.Item>
 
           {tipo === "PF" ? (
@@ -257,7 +306,7 @@ export default function PessoaForm() {
               name="cpf"
               rules={[{ required: true, message: "Informe o CPF!" }]}
             >
-              <Input placeholder="Somente números" maxLength={11}/>
+              <Input maxLength={11} placeholder="Somente números" />
             </Form.Item>
           ) : (
             <Form.Item
@@ -265,12 +314,13 @@ export default function PessoaForm() {
               name="cnpj"
               rules={[{ required: true, message: "Informe o CNPJ!" }]}
             >
-              <Input placeholder="Somente números" maxLength={18}/>
+              <Input maxLength={18} placeholder="Somente números" />
             </Form.Item>
           )}
 
           <EnderecoForm />
           <TelefoneList form={form} />
+
           {tipo === "PF" ? <PFForm /> : <PJForm />}
 
           <Form.Item style={{ marginTop: 20 }}>

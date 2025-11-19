@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, Descriptions, Button } from "antd";
+import { Card, Descriptions, Button, Spin } from "antd";
 import { useParams, useNavigate } from "react-router-dom";
 import PFDAO from "../../objetos/dao/PFDAOBackEnd.mjs";
 import PJDAO from "../../objetos/dao/PJDAOBackEnd.mjs";
@@ -9,15 +9,34 @@ export default function VisualizaPessoa() {
   const navigate = useNavigate();
 
   const [pessoa, setPessoa] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const dao = tipo === "PF" ? new PFDAO() : new PJDAO();
-    const lista = dao.listar();
+    async function carregar() {
+      setLoading(true);
 
-    // 🔹 Busca unificada pelo ID
-    const encontrada = lista.find((p) => p.id === id);
-    if (encontrada) setPessoa(encontrada);
+      const dao = tipo === "PF" ? new PFDAO() : new PJDAO();
+
+      // 🔹 Aguarda carregar do back-end
+      await dao.carregarLista();
+
+      const lista = dao.listar();
+      const encontrada = lista.find((p) => p.id === id);
+
+      setPessoa(encontrada ?? null);
+      setLoading(false);
+    }
+
+    carregar();
   }, [tipo, id]);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", marginTop: 50 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!pessoa) {
     return (
@@ -42,9 +61,7 @@ export default function VisualizaPessoa() {
       }}
     >
       <Card
-        title={`Detalhes da ${
-          tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica"
-        }`}
+        title={`Detalhes da ${tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}`}
         bordered={false}
       >
         <Descriptions bordered column={1}>
@@ -57,7 +74,6 @@ export default function VisualizaPessoa() {
             <Descriptions.Item label="CNPJ">{pessoa.cnpj}</Descriptions.Item>
           )}
 
-          {/* Endereço */}
           <Descriptions.Item label="Endereço">
             {pessoa.endereco?.logradouro}, {pessoa.endereco?.bairro} -{" "}
             {pessoa.endereco?.cidade}/{pessoa.endereco?.uf}
@@ -65,7 +81,6 @@ export default function VisualizaPessoa() {
             CEP: {pessoa.endereco?.cep} | Região: {pessoa.endereco?.regiao}
           </Descriptions.Item>
 
-          {/* Telefones */}
           <Descriptions.Item label="Telefones">
             {pessoa.telefones?.length > 0
               ? pessoa.telefones
@@ -74,23 +89,18 @@ export default function VisualizaPessoa() {
               : "Não informado"}
           </Descriptions.Item>
 
-          {/* Campos específicos */}
           {tipo === "PF" ? (
-            <>
-              <Descriptions.Item label="Título Eleitoral">
-                {pessoa.titulo?.numero
-                  ? `Nº ${pessoa.titulo.numero} - Zona ${pessoa.titulo.zona} / Seção ${pessoa.titulo.secao}`
-                  : "Não informado"}
-              </Descriptions.Item>
-            </>
+            <Descriptions.Item label="Título Eleitoral">
+              {pessoa.titulo?.numero
+                ? `Nº ${pessoa.titulo.numero} - Zona ${pessoa.titulo.zona} / Seção ${pessoa.titulo.secao}`
+                : "Não informado"}
+            </Descriptions.Item>
           ) : (
-            <>
-              <Descriptions.Item label="Inscrição Estadual">
-                {pessoa.ie?.numero
-                  ? `Nº ${pessoa.ie.numero} - ${pessoa.ie.estado} (${pessoa.ie.dataRegistro})`
-                  : "Não informado"}
-              </Descriptions.Item>
-            </>
+            <Descriptions.Item label="Inscrição Estadual">
+              {pessoa.ie?.numero
+                ? `Nº ${pessoa.ie.numero} - ${pessoa.ie.estado} (${pessoa.ie.dataRegistro})`
+                : "Não informado"}
+            </Descriptions.Item>
           )}
         </Descriptions>
 

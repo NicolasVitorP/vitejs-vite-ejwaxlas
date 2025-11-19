@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, Space, Popconfirm, message, Tag, Input, Select } from "antd";
+import { Table, Button, Space, Popconfirm, message, Input, Select, Spin } from "antd";
 import { EyeOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import PFDAO from "../../objetos/dao/PFDAOBackEnd.mjs";
 import PJDAO from "../../objetos/dao/PJDAOBackEnd.mjs";
-import dayjs from "dayjs";
 
 export default function ListaPessoas() {
   const navigate = useNavigate();
@@ -12,12 +11,19 @@ export default function ListaPessoas() {
   const [tipo, setTipo] = useState("PF");
   const [filtroNome, setFiltroNome] = useState("");
   const [dados, setDados] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const pfDAO = new PFDAO();
   const pjDAO = new PJDAO();
 
-  function carregarLista() {
+  // 🔹 Agora a função é assíncrona
+  async function carregarLista() {
+    setLoading(true);
+
     const dao = tipo === "PF" ? pfDAO : pjDAO;
+
+    // 🔹 Agora aguarda o carregamento do back-end
+    await dao.carregarLista();
     const lista = dao.listar();
 
     const filtrados = lista.filter((p) =>
@@ -25,6 +31,7 @@ export default function ListaPessoas() {
     );
 
     setDados(filtrados);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -39,36 +46,17 @@ export default function ListaPessoas() {
   }
 
   const colunas = [
-    {
-      title: "Nome",
-      dataIndex: "nome",
-      key: "nome",
-    },
-    {
-      title: "Email",
-      dataIndex: "email",
-      key: "email",
-    },
+    { title: "Nome", dataIndex: "nome", key: "nome" },
+    { title: "Email", dataIndex: "email", key: "email" },
     {
       title: tipo === "PF" ? "CPF" : "CNPJ",
       dataIndex: tipo === "PF" ? "cpf" : "cnpj",
       key: "doc",
-      width: 150,
+      width: 200,
     },
-
-    // 🔹 NOVA COLUNA — EXIBE DATA DE NASCIMENTO (PF) OU DATA DE REGISTRO (PJ)
-    {
-      title: tipo === "PF" ? "Data de Nascimento" : "Data de Registro",
-      dataIndex: tipo === "PF" ? "dataNascimento" : "dataRegistro",
-      key: "data",
-      width: 150,
-      render: (data) => data ? dayjs(data).format("DD/MM/YYYY") : "-"
-    },
-
     {
       title: "Ações",
       key: "acoes",
-      width: 180,
       render: (_, record) => (
         <Space>
           <Button
@@ -115,6 +103,7 @@ export default function ListaPessoas() {
             { value: "PJ", label: "Pessoa Jurídica" },
           ]}
         />
+
         <Input
           placeholder="Filtrar por nome"
           value={filtroNome}
@@ -122,17 +111,25 @@ export default function ListaPessoas() {
           allowClear
           style={{ width: 300 }}
         />
+
         <Button type="primary" onClick={carregarLista}>
           Atualizar
         </Button>
       </Space>
 
-      <Table
-        dataSource={dados}
-        columns={colunas}
-        rowKey="id"
-        pagination={{ pageSize: 6 }}
-      />
+      {/* 🔹 Enquanto carrega, exibe um spinner */}
+      {loading ? (
+        <div style={{ textAlign: "center", marginTop: 40 }}>
+          <Spin size="large" />
+        </div>
+      ) : (
+        <Table
+          dataSource={dados}
+          columns={colunas}
+          rowKey="id"
+          pagination={{ pageSize: 6 }}
+        />
+      )}
     </div>
   );
 }
